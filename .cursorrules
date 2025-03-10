@@ -1,0 +1,6 @@
+# Database Schema Analysis Project Rules
+
+type: documentation
+purpose: analyze database schema and suggest SQL improvements
+execution: no code execution required
+SQL: use mysql dialect, use comments to explain the query
