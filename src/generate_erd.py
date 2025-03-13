@@ -10,7 +10,7 @@ class TableInfo:
     name: str
     description: str
     columns: List[Tuple[str, str, bool]]  # (name, type, is_pk)
-    foreign_keys: List[Tuple[str, str]]  # (column, referenced_table)
+    foreign_keys: List[Tuple[str, str, str]]  # (column, referenced_table, referenced_column)
     primary_key: Optional[str] = None
     relationships: List[str] = field(default_factory=list)  # list of relationship strings
 
@@ -49,8 +49,10 @@ def parse_schema_xml(xml_file: str) -> List[TableInfo]:
     used_columns = get_used_columns()
     sql_tables = set(used_columns.keys())
     
-    # First pass: collect table information
+    # First pass: collect table information and primary keys
     table_info_map = {}
+    primary_keys = {}  # Store primary keys for each table
+    
     for table in root.findall('.//table'):
         table_name = table.get('name', '')
         if not table_name or table_name not in sql_tables:
@@ -65,44 +67,63 @@ def parse_schema_xml(xml_file: str) -> List[TableInfo]:
         foreign_keys = []
         primary_key = None
         
-        # Process columns
+        # First find the primary key
+        for column in table.findall('column'):
+            col_name = column.get('name', '')
+            summary = column.find('summary')
+            summary_text = summary.text if summary is not None else ''
+            if 'Primary key' in summary_text:
+                primary_key = col_name
+                primary_keys[table_name] = col_name
+                break
+        
+        # Then process all columns
         for column in table.findall('column'):
             col_name = column.get('name', '')
             col_type = column.get('type', '')
             if not col_name or not col_type:
                 continue
-                
-            # Only include columns that are used in queries or are primary/foreign keys
-            if col_name not in used_columns[table_name]:
-                # Check if it's a primary key
-                summary = column.find('summary')
-                summary_text = summary.text if summary is not None else ''
-                is_pk = bool(summary_text and 'Primary key' in summary_text)
-                
-                # Check if it's a foreign key to a used table
-                fk = column.get('fk', '')
-                is_used_fk = bool(fk and fk in sql_tables)
-                
-                # Skip if not primary key or used foreign key
-                if not (is_pk or is_used_fk):
-                    continue
             
-            # Check if primary key
+            # Check if it's a primary key
             summary = column.find('summary')
             summary_text = summary.text if summary is not None else ''
             is_pk = bool(summary_text and 'Primary key' in summary_text)
             
-            # Store primary key
-            if is_pk:
-                primary_key = col_name
-                
-            # Add column
-            columns.append((col_name, col_type, is_pk))
+            # Check if it's a foreign key
+            fk_table = None
+            fk_column = None
             
-            # Check for foreign key
-            fk = column.get('fk', '')
-            if fk and fk in sql_tables:
-                foreign_keys.append((col_name, fk))
+            # Look for foreign key reference in summary text
+            if summary_text:
+                # Common patterns in summary text for foreign keys
+                fk_patterns = [
+                    r"Foreign key to ([a-zA-Z]+)\.([a-zA-Z]+)",  # Format: "Foreign key to table.column"
+                    r"FK to ([a-zA-Z]+)\.([a-zA-Z]+)",          # Format: "FK to table.column"
+                    r"References ([a-zA-Z]+)\.([a-zA-Z]+)"      # Format: "References table.column"
+                ]
+                
+                import re
+                for pattern in fk_patterns:
+                    match = re.search(pattern, summary_text)
+                    if match:
+                        fk_table = match.group(1)
+                        fk_column = match.group(2)
+                        break
+            
+            # Only include columns that are:
+            # 1. Used in queries, or
+            # 2. Primary keys, or
+            # 3. Foreign keys to used tables
+            if (col_name in used_columns.get(table_name, set()) or 
+                is_pk or 
+                (fk_table and fk_table in sql_tables)):
+                
+                # Add column
+                columns.append((col_name, col_type, is_pk))
+                
+                # Add foreign key if it references a used table
+                if fk_table and fk_table in sql_tables:
+                    foreign_keys.append((col_name, fk_table, fk_column))
         
         table_info = TableInfo(
             name=table_name,
@@ -116,11 +137,11 @@ def parse_schema_xml(xml_file: str) -> List[TableInfo]:
     # Second pass: resolve relationships
     for table_name, table_info in table_info_map.items():
         # Add relationships based on foreign keys
-        for fk_col, fk_table in table_info.foreign_keys:
+        for fk_col, fk_table, fk_column in table_info.foreign_keys:
             if fk_table in table_info_map:
                 referenced_table = table_info_map[fk_table]
-                if referenced_table.primary_key:
-                    # Add relationship details
+                # Only create relationship if foreign key points to primary key
+                if referenced_table.primary_key and fk_column == referenced_table.primary_key:
                     relationship = f"{table_name}.{fk_col} -> {fk_table}.{referenced_table.primary_key}"
                     table_info.relationships.append(relationship)
     
@@ -128,15 +149,19 @@ def parse_schema_xml(xml_file: str) -> List[TableInfo]:
 
 def generate_dot_erd(tables: List[TableInfo]) -> str:
     """
-    Generate DOT format ERD with table grouping and improved relationships
+    Generate DOT format ERD with table grouping and improved relationships using crow's foot notation
     """
     dot_content = [
         'digraph G {',
         '  rankdir="TB";',
         '  node [shape=none, margin=0];',
-        '  edge [fontsize=9, len=1.5];',
+        '  edge [fontsize=9, len=1.2];',  # Reduced edge length for better layout
         '  splines=polyline;',
         '  concentrate=true;',
+        
+        # Define edge styles for crow's foot notation
+        '  edge [dir=both];',  # Enable both-way arrows for relationship notation
+        '  edge [arrowhead=none, arrowtail=none];',  # Default no arrows, we'll override per edge
         
         # Define subgraphs for logical grouping
         '  subgraph cluster_patient {',
@@ -194,17 +219,18 @@ def generate_dot_erd(tables: List[TableInfo]) -> str:
             source_table, source_col = source.split('.')
             target_table, target_col = target.split('.')
             
-            # Style edges based on relationship type
+            # Determine relationship type and style
             if source_col.endswith('PatNum') or target_col.endswith('PatNum'):
-                # Patient relationships in blue dashed lines
-                edge_style = '[color=blue, style=dashed]'
+                # Patient relationships (one-to-many)
+                edge_style = '[color=blue, penwidth=1.5, arrowhead="crow", arrowtail="tee"]'
             elif source_table == target_table:
-                # Self-referential relationships in gray dotted lines
-                edge_style = '[color=gray, style=dotted]'
+                # Self-referential relationships (one-to-one or one-to-many)
+                edge_style = '[color=gray, style=dashed, arrowhead="crow", arrowtail="tee"]'
             else:
-                # Regular relationships in black solid lines
-                edge_style = '[color=black]'
+                # Regular relationships (one-to-many)
+                edge_style = '[color=black, penwidth=1.2, arrowhead="crow", arrowtail="tee"]'
             
+            # Add edge with crow's foot notation
             dot_content.append(f'  {source_table}:{source_col} -> {target_table}:{target_col} {edge_style};')
     
     dot_content.append('}')
