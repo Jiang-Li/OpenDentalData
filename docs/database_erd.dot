@@ -1,84 +1,62 @@
-digraph ERD {
-    rankdir=TB;
-    compound=true;
-    splines=polyline;
-    concentrate=true;
-    node [shape=record, fontname="Arial", fontsize=10, margin="0.2,0.1"];
-    edge [fontname="Arial", fontsize=8, len=1.2];
-
-    # Define node groups
-    subgraph cluster_patient {
-        label="Patient Information";
-        style=rounded;
-        bgcolor="#f0f8ff";
-        color="#a0c8ff";
-        patient;  # Core patient table
-    }
-
-    subgraph cluster_appointments {
-        label="Appointments";
-        style=rounded;
-        bgcolor="#f0fff0";
-        color="#a0ffa0";
-        appointment;
-        appointmenttype;
-        procedurelog;
-    }
-
-    subgraph cluster_insurance {
-        label="Insurance";
-        style=rounded;
-        bgcolor="#fff0f8";
-        color="#ffa0c8";
-        inssub;
-        patplan;
-        claimproc;
-    }
-
-    subgraph cluster_payments {
-        label="Payments";
-        style=rounded;
-        bgcolor="#fff8f0";
-        color="#ffd0a0";
-        payment;
-        payplan;
-        paysplit;
-    }
-
-    appointment [label="{appointment|<desc>Appointments can show in the Appointments module, or they can be on the unscheduled list|<AptNum> AptNum (PK)\nbigint(20)|<PatNum> PatNum\nbigint(20)|<NextAptNum> NextAptNum\nbigint(20)|<AppointmentTypeNum> AppointmentTypeNum\nbigint(20)}"];
-    appointmenttype [label="{appointmenttype|<desc>Appointment type is used to override appointment color|<AppointmentTypeNum> AppointmentTypeNum (PK)\nbigint(20)}"];
-    claimproc [label="{claimproc|<desc>Links procedures to claims|<ClaimProcNum> ClaimProcNum (PK)\nbigint(20)|<ProcNum> ProcNum\nbigint(20)|<PatNum> PatNum\nbigint(20)|<InsSubNum> InsSubNum\nbigint(20)|<PayPlanNum> PayPlanNum\nbigint(20)}"];
-    inssub [label="{inssub|<desc>Multiple subscribers can have the same insurance plan|<InsSubNum> InsSubNum (PK)\nbigint(20)|<Subscriber> Subscriber\nbigint(20)}"];
-    patient [label="{patient|<desc>One row for each patient|<PatNum> PatNum (PK)\nbigint(20)|<Guarantor> Guarantor\nbigint(20)|<ResponsParty> ResponsParty\nbigint(20)|<SuperFamily> SuperFamily\nbigint(20)}"];
-    patplan [label="{patplan|<desc>Each row represents the linking of one insplan to one patient for current coverage|<PatPlanNum> PatPlanNum (PK)\nbigint(20)|<InsSubNum> InsSubNum\nbigint(20)}"];
-    payment [label="{payment|<desc>A patient payment|<PayNum> PayNum (PK)\nbigint(20)|<PatNum> PatNum\nbigint(20)}"];
-    payplan [label="{payplan|<desc>Each row represents one signed agreement to make payments|<PayPlanNum> PayPlanNum (PK)\nbigint(20)|<PatNum> PatNum\nbigint(20)|<Guarantor> Guarantor\nbigint(20)|<InsSubNum> InsSubNum\nbigint(20)}"];
-    paysplit [label="{paysplit|<desc>Always attached to a payment|<SplitNum> SplitNum (PK)\nbigint(20)|<PatNum> PatNum\nbigint(20)|<PayNum> PayNum\nbigint(20)|<PayPlanNum> PayPlanNum\nbigint(20)|<ProcNum> ProcNum\nbigint(20)}"];
-    procedurelog [label="{procedurelog|<desc>Database table is procedurelog|<ProcNum> ProcNum (PK)\nbigint(20)|<PatNum> PatNum\nbigint(20)|<AptNum> AptNum\nbigint(20)|<PlannedAptNum> PlannedAptNum\nbigint(20)|<ProcNumLab> ProcNumLab\nbigint(20)}"];
-
-    # Relationships
-    appointment:PatNum -> patient [label="PatNum" style=dashed color="#4040ff" fontcolor="#4040ff"];
-    appointment:NextAptNum -> appointment [label="NextAptNum" style=dotted color="#808080" fontcolor="#808080"];
-    appointment:AppointmentTypeNum -> appointmenttype [label="AppointmentTypeNum"];
-    claimproc:ProcNum -> procedurelog [label="ProcNum"];
-    claimproc:PatNum -> patient [label="PatNum" style=dashed color="#4040ff" fontcolor="#4040ff"];
-    claimproc:InsSubNum -> inssub [label="InsSubNum"];
-    claimproc:PayPlanNum -> payplan [label="PayPlanNum"];
-    inssub:Subscriber -> patient [label="Subscriber" style=dashed color="#4040ff" fontcolor="#4040ff"];
-    patient:Guarantor -> patient [label="Guarantor" style=dashed color="#4040ff" fontcolor="#4040ff"];
-    patient:ResponsParty -> patient [label="ResponsParty" style=dashed color="#4040ff" fontcolor="#4040ff"];
-    patient:SuperFamily -> patient [label="SuperFamily" style=dashed color="#4040ff" fontcolor="#4040ff"];
-    patplan:InsSubNum -> inssub [label="InsSubNum"];
-    payment:PatNum -> patient [label="PatNum" style=dashed color="#4040ff" fontcolor="#4040ff"];
-    payplan:PatNum -> patient [label="PatNum" style=dashed color="#4040ff" fontcolor="#4040ff"];
-    payplan:Guarantor -> patient [label="Guarantor" style=dashed color="#4040ff" fontcolor="#4040ff"];
-    payplan:InsSubNum -> inssub [label="InsSubNum"];
-    paysplit:PatNum -> patient [label="PatNum" style=dashed color="#4040ff" fontcolor="#4040ff"];
-    paysplit:PayNum -> payment [label="PayNum"];
-    paysplit:PayPlanNum -> payplan [label="PayPlanNum"];
-    paysplit:ProcNum -> procedurelog [label="ProcNum"];
-    procedurelog:PatNum -> patient [label="PatNum" style=dashed color="#4040ff" fontcolor="#4040ff"];
-    procedurelog:AptNum -> appointment [label="AptNum"];
-    procedurelog:PlannedAptNum -> appointment [label="PlannedAptNum"];
-    procedurelog:ProcNumLab -> procedurelog [label="ProcNumLab" style=dotted color="#808080" fontcolor="#808080"];
+digraph G {
+  rankdir="TB";
+  node [shape=none, margin=0];
+  edge [fontsize=9, len=1.5];
+  splines=polyline;
+  concentrate=true;
+  subgraph cluster_patient {
+    style="filled";
+    color=lightblue;
+    label="Patient Information";
+    node [style=filled, fillcolor=white];
+    patient; patplan; inssub;
+  }
+  subgraph cluster_appointments {
+    style="filled";
+    color=lightgreen;
+    label="Appointments";
+    node [style=filled, fillcolor=white];
+    appointment; appointmenttype; procedurelog;
+  }
+  subgraph cluster_payments {
+    style="filled";
+    color=lightsalmon;
+    label="Payments";
+    node [style=filled, fillcolor=white];
+    payment; paysplit; payplan; claimproc;
+  }
+  appointment [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4"> <TR><TD COLSPAN="2" BGCOLOR="lightgrey"><B>appointment</B></TD></TR> <TR><TD PORT="AptNum" ALIGN="LEFT"><B>AptNum (PK)</B></TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="PatNum" ALIGN="LEFT">PatNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="AptStatus" ALIGN="LEFT">AptStatus</TD><TD ALIGN="LEFT">tinyint</TD></TR> <TR><TD PORT="AptDateTime" ALIGN="LEFT">AptDateTime</TD><TD ALIGN="LEFT">datetime</TD></TR> <TR><TD PORT="NextAptNum" ALIGN="LEFT">NextAptNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="AppointmentTypeNum" ALIGN="LEFT">AppointmentTypeNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> </TABLE>>];
+  appointmenttype [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4"> <TR><TD COLSPAN="2" BGCOLOR="lightgrey"><B>appointmenttype</B></TD></TR> <TR><TD PORT="AppointmentTypeNum" ALIGN="LEFT"><B>AppointmentTypeNum (PK)</B></TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="AppointmentTypeName" ALIGN="LEFT">AppointmentTypeName</TD><TD ALIGN="LEFT">varchar(255)</TD></TR> </TABLE>>];
+  claimproc [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4"> <TR><TD COLSPAN="2" BGCOLOR="lightgrey"><B>claimproc</B></TD></TR> <TR><TD PORT="ClaimProcNum" ALIGN="LEFT"><B>ClaimProcNum (PK)</B></TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="ProcNum" ALIGN="LEFT">ProcNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="PatNum" ALIGN="LEFT">PatNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="InsPayAmt" ALIGN="LEFT">InsPayAmt</TD><TD ALIGN="LEFT">double</TD></TR> <TR><TD PORT="InsSubNum" ALIGN="LEFT">InsSubNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="PayPlanNum" ALIGN="LEFT">PayPlanNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> </TABLE>>];
+  inssub [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4"> <TR><TD COLSPAN="2" BGCOLOR="lightgrey"><B>inssub</B></TD></TR> <TR><TD PORT="InsSubNum" ALIGN="LEFT"><B>InsSubNum (PK)</B></TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="PlanNum" ALIGN="LEFT">PlanNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="Subscriber" ALIGN="LEFT">Subscriber</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> </TABLE>>];
+  patient [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4"> <TR><TD COLSPAN="2" BGCOLOR="lightgrey"><B>patient</B></TD></TR> <TR><TD PORT="PatNum" ALIGN="LEFT"><B>PatNum (PK)</B></TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="LName" ALIGN="LEFT">LName</TD><TD ALIGN="LEFT">varchar(100)</TD></TR> <TR><TD PORT="FName" ALIGN="LEFT">FName</TD><TD ALIGN="LEFT">varchar(100)</TD></TR> <TR><TD PORT="Gender" ALIGN="LEFT">Gender</TD><TD ALIGN="LEFT">tinyint</TD></TR> <TR><TD PORT="Birthdate" ALIGN="LEFT">Birthdate</TD><TD ALIGN="LEFT">date</TD></TR> <TR><TD PORT="Zip" ALIGN="LEFT">Zip</TD><TD ALIGN="LEFT">varchar(100)</TD></TR> <TR><TD PORT="Guarantor" ALIGN="LEFT">Guarantor</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="ResponsParty" ALIGN="LEFT">ResponsParty</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="SuperFamily" ALIGN="LEFT">SuperFamily</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> </TABLE>>];
+  patplan [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4"> <TR><TD COLSPAN="2" BGCOLOR="lightgrey"><B>patplan</B></TD></TR> <TR><TD PORT="PatPlanNum" ALIGN="LEFT"><B>PatPlanNum (PK)</B></TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="PatNum" ALIGN="LEFT">PatNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="InsSubNum" ALIGN="LEFT">InsSubNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> </TABLE>>];
+  payment [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4"> <TR><TD COLSPAN="2" BGCOLOR="lightgrey"><B>payment</B></TD></TR> <TR><TD PORT="PayNum" ALIGN="LEFT"><B>PayNum (PK)</B></TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="PayDate" ALIGN="LEFT">PayDate</TD><TD ALIGN="LEFT">date</TD></TR> <TR><TD PORT="PatNum" ALIGN="LEFT">PatNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> </TABLE>>];
+  payplan [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4"> <TR><TD COLSPAN="2" BGCOLOR="lightgrey"><B>payplan</B></TD></TR> <TR><TD PORT="PayPlanNum" ALIGN="LEFT"><B>PayPlanNum (PK)</B></TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="PatNum" ALIGN="LEFT">PatNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="Guarantor" ALIGN="LEFT">Guarantor</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="InsSubNum" ALIGN="LEFT">InsSubNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> </TABLE>>];
+  paysplit [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4"> <TR><TD COLSPAN="2" BGCOLOR="lightgrey"><B>paysplit</B></TD></TR> <TR><TD PORT="SplitNum" ALIGN="LEFT"><B>SplitNum (PK)</B></TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="SplitAmt" ALIGN="LEFT">SplitAmt</TD><TD ALIGN="LEFT">double</TD></TR> <TR><TD PORT="PatNum" ALIGN="LEFT">PatNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="PayNum" ALIGN="LEFT">PayNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="PayPlanNum" ALIGN="LEFT">PayPlanNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="ProcNum" ALIGN="LEFT">ProcNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> </TABLE>>];
+  procedurelog [label=<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4"> <TR><TD COLSPAN="2" BGCOLOR="lightgrey"><B>procedurelog</B></TD></TR> <TR><TD PORT="ProcNum" ALIGN="LEFT"><B>ProcNum (PK)</B></TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="PatNum" ALIGN="LEFT">PatNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="AptNum" ALIGN="LEFT">AptNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="ProcFee" ALIGN="LEFT">ProcFee</TD><TD ALIGN="LEFT">double</TD></TR> <TR><TD PORT="ProcStatus" ALIGN="LEFT">ProcStatus</TD><TD ALIGN="LEFT">tinyint</TD></TR> <TR><TD PORT="PlannedAptNum" ALIGN="LEFT">PlannedAptNum</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> <TR><TD PORT="ProcNumLab" ALIGN="LEFT">ProcNumLab</TD><TD ALIGN="LEFT">bigint(20)</TD></TR> </TABLE>>];
+  appointment:PatNum -> patient:PatNum [color=blue, style=dashed];
+  appointment:NextAptNum -> appointment:AptNum [color=gray, style=dotted];
+  appointment:AppointmentTypeNum -> appointmenttype:AppointmentTypeNum [color=black];
+  claimproc:ProcNum -> procedurelog:ProcNum [color=black];
+  claimproc:PatNum -> patient:PatNum [color=blue, style=dashed];
+  claimproc:InsSubNum -> inssub:InsSubNum [color=black];
+  claimproc:PayPlanNum -> payplan:PayPlanNum [color=black];
+  inssub:Subscriber -> patient:PatNum [color=blue, style=dashed];
+  patient:Guarantor -> patient:PatNum [color=blue, style=dashed];
+  patient:ResponsParty -> patient:PatNum [color=blue, style=dashed];
+  patient:SuperFamily -> patient:PatNum [color=blue, style=dashed];
+  patplan:InsSubNum -> inssub:InsSubNum [color=black];
+  payment:PatNum -> patient:PatNum [color=blue, style=dashed];
+  payplan:PatNum -> patient:PatNum [color=blue, style=dashed];
+  payplan:Guarantor -> patient:PatNum [color=blue, style=dashed];
+  payplan:InsSubNum -> inssub:InsSubNum [color=black];
+  paysplit:PatNum -> patient:PatNum [color=blue, style=dashed];
+  paysplit:PayNum -> payment:PayNum [color=black];
+  paysplit:PayPlanNum -> payplan:PayPlanNum [color=black];
+  paysplit:ProcNum -> procedurelog:ProcNum [color=black];
+  procedurelog:PatNum -> patient:PatNum [color=blue, style=dashed];
+  procedurelog:AptNum -> appointment:AptNum [color=black];
+  procedurelog:PlannedAptNum -> appointment:AptNum [color=black];
+  procedurelog:ProcNumLab -> procedurelog:ProcNum [color=gray, style=dotted];
 }

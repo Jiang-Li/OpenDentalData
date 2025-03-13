@@ -1,18 +1,42 @@
 import xml.etree.ElementTree as ET
-from typing import Dict, List, Set, Tuple, NamedTuple
+from typing import Dict, List, Set, Tuple, NamedTuple, Optional
 from pathlib import Path
 import subprocess
+from dataclasses import dataclass, field
 
-class TableInfo(NamedTuple):
+@dataclass
+class TableInfo:
     """Information about a database table"""
     name: str
     description: str
     columns: List[Tuple[str, str, bool]]  # (name, type, is_pk)
     foreign_keys: List[Tuple[str, str]]  # (column, referenced_table)
+    primary_key: Optional[str] = None
+    relationships: List[str] = field(default_factory=list)  # list of relationship strings
+
+def get_used_columns() -> Dict[str, Set[str]]:
+    """
+    Extract tables and their columns used in SQL queries
+    Returns:
+        Dictionary mapping table aliases to sets of used columns
+    """
+    used_columns = {
+        'patient': {'PatNum', 'LName', 'FName', 'Birthdate', 'Gender', 'Zip'},
+        'patplan': {'PatNum', 'InsSubNum'},
+        'inssub': {'InsSubNum', 'PlanNum'},
+        'payplan': {'PatNum', 'PayPlanNum'},
+        'procedurelog': {'PatNum', 'ProcNum', 'ProcStatus', 'ProcFee', 'AptNum'},
+        'paysplit': {'ProcNum', 'SplitAmt', 'PayNum'},
+        'claimproc': {'ProcNum', 'InsPayAmt'},
+        'appointment': {'AptNum', 'PatNum', 'AptDateTime', 'AptStatus', 'AppointmentTypeNum'},
+        'appointmenttype': {'AppointmentTypeNum', 'AppointmentTypeName'},
+        'payment': {'PayNum', 'PayDate'}
+    }
+    return used_columns
 
 def parse_schema_xml(xml_file: str) -> List[TableInfo]:
     """
-    Parse the XML schema file to extract table information for tables used in SQL queries
+    Parse the XML schema file to extract table information for tables and columns used in SQL queries
     Args:
         xml_file: Path to the XML schema file
     Returns:
@@ -21,15 +45,12 @@ def parse_schema_xml(xml_file: str) -> List[TableInfo]:
     tree = ET.parse(xml_file)
     root = tree.getroot()
     
-    tables: List[TableInfo] = []
+    # Get tables and columns used in queries
+    used_columns = get_used_columns()
+    sql_tables = set(used_columns.keys())
     
-    # Tables used in SQL queries
-    sql_tables = {
-        'patient', 'patplan', 'inssub', 'payplan', 'procedurelog', 'paysplit', 
-        'claimproc', 'appointment', 'appointmenttype', 'payment'
-    }
-    
-    # Collect information for SQL tables
+    # First pass: collect table information
+    table_info_map = {}
     for table in root.findall('.//table'):
         table_name = table.get('name', '')
         if not table_name or table_name not in sql_tables:
@@ -42,130 +63,152 @@ def parse_schema_xml(xml_file: str) -> List[TableInfo]:
         
         columns = []
         foreign_keys = []
+        primary_key = None
         
         # Process columns
-        for column in table.findall('.//column'):
+        for column in table.findall('column'):
             col_name = column.get('name', '')
             col_type = column.get('type', '')
             if not col_name or not col_type:
                 continue
                 
+            # Only include columns that are used in queries or are primary/foreign keys
+            if col_name not in used_columns[table_name]:
+                # Check if it's a primary key
+                summary = column.find('summary')
+                summary_text = summary.text if summary is not None else ''
+                is_pk = bool(summary_text and 'Primary key' in summary_text)
+                
+                # Check if it's a foreign key to a used table
+                fk = column.get('fk', '')
+                is_used_fk = bool(fk and fk in sql_tables)
+                
+                # Skip if not primary key or used foreign key
+                if not (is_pk or is_used_fk):
+                    continue
+            
             # Check if primary key
             summary = column.find('summary')
             summary_text = summary.text if summary is not None else ''
             is_pk = bool(summary_text and 'Primary key' in summary_text)
             
-            # Only include primary keys and foreign keys
-            fk = column.get('fk', '')
-            if is_pk or (fk and fk in sql_tables):
-                columns.append((col_name, col_type, is_pk))
+            # Store primary key
+            if is_pk:
+                primary_key = col_name
+                
+            # Add column
+            columns.append((col_name, col_type, is_pk))
             
             # Check for foreign key
+            fk = column.get('fk', '')
             if fk and fk in sql_tables:
                 foreign_keys.append((col_name, fk))
         
-        tables.append(TableInfo(
+        table_info = TableInfo(
             name=table_name,
             description=description,
             columns=columns,
-            foreign_keys=foreign_keys
-        ))
+            foreign_keys=foreign_keys,
+            primary_key=primary_key
+        )
+        table_info_map[table_name] = table_info
     
-    return tables
+    # Second pass: resolve relationships
+    for table_name, table_info in table_info_map.items():
+        # Add relationships based on foreign keys
+        for fk_col, fk_table in table_info.foreign_keys:
+            if fk_table in table_info_map:
+                referenced_table = table_info_map[fk_table]
+                if referenced_table.primary_key:
+                    # Add relationship details
+                    relationship = f"{table_name}.{fk_col} -> {fk_table}.{referenced_table.primary_key}"
+                    table_info.relationships.append(relationship)
+    
+    return list(table_info_map.values())
 
 def generate_dot_erd(tables: List[TableInfo]) -> str:
-    """Generate DOT syntax for Graphviz ERD diagram"""
-    
-    dot = [
-        'digraph ERD {',
-        '    rankdir=TB;',  # Top to bottom layout
-        '    compound=true;',  # Enable connections to subgraphs
-        '    splines=polyline;',  # Use polyline edges for better label placement
-        '    concentrate=true;',  # Merge edges going to the same destination
-        '    node [shape=record, fontname="Arial", fontsize=10, margin="0.2,0.1"];',
-        '    edge [fontname="Arial", fontsize=8, len=1.2];',
-        '',
-        '    # Define node groups',
-        '    subgraph cluster_patient {',
-        '        label="Patient Information";',
-        '        style=rounded;',
-        '        bgcolor="#f0f8ff";',  # Light blue background',
-        '        color="#a0c8ff";',  # Darker blue border
-        '        patient;  # Core patient table',
-        '    }',
-        '',
-        '    subgraph cluster_appointments {',
-        '        label="Appointments";',
-        '        style=rounded;',
-        '        bgcolor="#f0fff0";',  # Light green background
-        '        color="#a0ffa0";',  # Darker green border
-        '        appointment;',
-        '        appointmenttype;',
-        '        procedurelog;',
-        '    }',
-        '',
-        '    subgraph cluster_insurance {',
-        '        label="Insurance";',
-        '        style=rounded;',
-        '        bgcolor="#fff0f8";',  # Light pink background
-        '        color="#ffa0c8";',  # Darker pink border
-        '        inssub;',
-        '        patplan;',
-        '        claimproc;',
-        '    }',
-        '',
-        '    subgraph cluster_payments {',
-        '        label="Payments";',
-        '        style=rounded;',
-        '        bgcolor="#fff8f0";',  # Light orange background
-        '        color="#ffd0a0";',  # Darker orange border
-        '        payment;',
-        '        payplan;',
-        '        paysplit;',
-        '    }',
-        ''
+    """
+    Generate DOT format ERD with table grouping and improved relationships
+    """
+    dot_content = [
+        'digraph G {',
+        '  rankdir="TB";',
+        '  node [shape=none, margin=0];',
+        '  edge [fontsize=9, len=1.5];',
+        '  splines=polyline;',
+        '  concentrate=true;',
+        
+        # Define subgraphs for logical grouping
+        '  subgraph cluster_patient {',
+        '    style="filled";',
+        '    color=lightblue;',
+        '    label="Patient Information";',
+        '    node [style=filled, fillcolor=white];',
+        '    patient; patplan; inssub;',
+        '  }',
+        
+        '  subgraph cluster_appointments {',
+        '    style="filled";',
+        '    color=lightgreen;',
+        '    label="Appointments";',
+        '    node [style=filled, fillcolor=white];',
+        '    appointment; appointmenttype; procedurelog;',
+        '  }',
+        
+        '  subgraph cluster_payments {',
+        '    style="filled";',
+        '    color=lightsalmon;',
+        '    label="Payments";',
+        '    node [style=filled, fillcolor=white];',
+        '    payment; paysplit; payplan; claimproc;',
+        '  }'
     ]
     
-    # Add table nodes
+    # Add nodes (tables)
     for table in tables:
-        # Format columns for the table label
+        # Format columns as HTML-like label
         columns = []
-        if table.description:
-            desc = table.description.replace('"', '\\"').replace('\n', ' ').strip()
-            columns.append(f'<desc>{desc}')
-        
         for col_name, col_type, is_pk in table.columns:
-            col_str = f'<{col_name}> {col_name}'
+            # Format column with type and PK indicator
             if is_pk:
-                col_str += ' (PK)'
-            col_str += f'\\n{col_type}'
-            columns.append(col_str)
+                columns.append(f'<TR><TD PORT="{col_name}" ALIGN="LEFT"><B>{col_name} (PK)</B></TD><TD ALIGN="LEFT">{col_type}</TD></TR>')
+            else:
+                columns.append(f'<TR><TD PORT="{col_name}" ALIGN="LEFT">{col_name}</TD><TD ALIGN="LEFT">{col_type}</TD></TR>')
+            
+        # Create HTML-like table label
+        label = [
+            '<<TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0" CELLPADDING="4">',
+            f'<TR><TD COLSPAN="2" BGCOLOR="lightgrey"><B>{table.name}</B></TD></TR>',
+            *columns,
+            '</TABLE>>'
+        ]
         
-        # Create table node with HTML-like label for better formatting
-        node_def = f'    {table.name} [label="{{{table.name}|{"|".join(columns)}}}"];'
-        dot.append(node_def)
+        # Add node definition
+        dot_content.append(f'  {table.name} [label={" ".join(label)}];')
     
-    dot.append('\n    # Relationships')
-    
-    # Add relationships with improved edge routing
+    # Add edges (relationships)
     for table in tables:
-        for column, referenced_table in table.foreign_keys:
-            # Only add relationship if both tables are in our limited set
-            if referenced_table in {t.name for t in tables}:
-                # Use different edge styles based on relationship type
-                if referenced_table == 'patient':
-                    # Patient relationships are dashed and blue
-                    edge = f'    {table.name}:{column} -> {referenced_table} [label="{column}" style=dashed color="#4040ff" fontcolor="#4040ff"];'
-                elif table.name == referenced_table:
-                    # Self-referential relationships are dotted and gray
-                    edge = f'    {table.name}:{column} -> {referenced_table} [label="{column}" style=dotted color="#808080" fontcolor="#808080"];'
-                else:
-                    # Regular relationships are solid black
-                    edge = f'    {table.name}:{column} -> {referenced_table} [label="{column}"];'
-                dot.append(edge)
+        for rel in table.relationships:
+            # Parse relationship string
+            source, target = rel.split(' -> ')
+            source_table, source_col = source.split('.')
+            target_table, target_col = target.split('.')
+            
+            # Style edges based on relationship type
+            if source_col.endswith('PatNum') or target_col.endswith('PatNum'):
+                # Patient relationships in blue dashed lines
+                edge_style = '[color=blue, style=dashed]'
+            elif source_table == target_table:
+                # Self-referential relationships in gray dotted lines
+                edge_style = '[color=gray, style=dotted]'
+            else:
+                # Regular relationships in black solid lines
+                edge_style = '[color=black]'
+            
+            dot_content.append(f'  {source_table}:{source_col} -> {target_table}:{target_col} {edge_style};')
     
-    dot.append('}')
-    return '\n'.join(dot)
+    dot_content.append('}')
+    return '\n'.join(dot_content)
 
 def main():
     # Create docs directory if it doesn't exist

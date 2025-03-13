@@ -1,90 +1,91 @@
 # OpenDentalData - Database Schema Analysis
 
-This project provides tools for analyzing and visualizing the Open Dental database schema, with a focus on patient and appointment data analysis.
+A Python-based tool for analyzing and visualizing the Open Dental database schema, focusing on patient and appointment data management. The project generates Entity Relationship Diagrams (ERDs) that highlight the relationships between key tables in the database.
 
 ## Features
 
-- **Schema Parsing**: Parse XML schema documentation to extract table structures and relationships
-- **ERD Generation**: Generate Entity Relationship Diagrams (ERD) using Graphviz
-- **SQL Analysis**: Includes example SQL queries for common data analysis tasks
+- **Schema Parsing**: Parses XML schema documentation to extract table structures and relationships
+- **ERD Generation**: Creates visual Entity Relationship Diagrams using Graphviz
+- **SQL Analysis**: Focuses on tables and columns used in patient and appointment queries
+- **Smart Visualization**: Groups related tables and color-codes different types of relationships
 
 ## Project Structure
 
 ```
 .
 ├── src/
-│   ├── generate_erd.py    # ERD generation script
-│   └── schema_parser.py   # XML schema parser
-├── sql/
-│   ├── patients.sql       # Patient-level analysis queries
-│   └── appointments.sql   # Appointment-level analysis queries
-└── docs/
-    ├── schema.md          # Markdown documentation of schema
-    ├── database_erd.png   # Generated ERD diagram
-    └── database_erd.dot   # DOT source for ERD
+│   └── generate_erd.py      # Main script for ERD generation
+├── docs/
+│   ├── schema.md           # Schema documentation
+│   ├── database_erd.png    # Generated ERD image
+│   └── database_erd.dot    # Generated DOT source file
+└── README.md
 ```
 
 ## Prerequisites
 
-- Python 3.8+
+- Python 3.8 or higher
 - Graphviz (for ERD generation)
 
 ### Installing Graphviz
 
-- macOS: `brew install graphviz`
-- Linux: `apt-get install graphviz`
-- Windows: Download from [Graphviz Downloads](https://graphviz.org/download/)
+- **macOS**: `brew install graphviz`
+- **Ubuntu/Debian**: `sudo apt-get install graphviz`
+- **Windows**: Download installer from [Graphviz Downloads](https://graphviz.org/download/)
 
 ## Usage
 
-1. **Generate ERD**:
+1. Generate the ERD:
    ```bash
    python src/generate_erd.py
    ```
    This will create:
-   - `docs/database_erd.png`: Visual ERD diagram
-   - `docs/database_erd.dot`: DOT source file
-
-2. **SQL Queries**:
-   - `sql/patients.sql`: Retrieve patient demographics, insurance status, and financial data
-   - `sql/appointments.sql`: Analyze appointment scheduling and related financial information
+   - `docs/database_erd.png`: The visual ERD
+   - `docs/database_erd.dot`: The DOT source file
 
 ## ERD Layout
 
 The ERD is organized into logical groups:
 
-- **Patient Information** (Blue): Core patient data
-- **Appointments** (Green): Appointment scheduling and procedures
-- **Insurance** (Pink): Insurance plans and claims
-- **Payments** (Orange): Payment tracking and plans
+1. **Patient Information** (Light Blue)
+   - `patient`: Core patient demographics
+   - `patplan`: Patient insurance plans
+   - `inssub`: Insurance subscriptions
 
-Relationship types are indicated by different line styles:
-- **Blue dashed lines**: Relationships to patient table
-- **Gray dotted lines**: Self-referential relationships
-- **Solid black lines**: Standard foreign key relationships
-
-## Tables Included
-
-The ERD focuses on the most relevant tables for patient and appointment analysis:
-
-1. **Core Tables**:
-   - `patient`: Patient demographics and core information
-   - `appointment`: Appointment scheduling data
+2. **Appointments** (Light Green)
+   - `appointment`: Appointment details
+   - `appointmenttype`: Types of appointments
    - `procedurelog`: Dental procedures
 
-2. **Insurance Tables**:
-   - `inssub`: Insurance subscriptions
-   - `patplan`: Patient-insurance plan links
-   - `claimproc`: Insurance claims and payments
-
-3. **Payment Tables**:
-   - `payment`: Patient payments
-   - `paysplit`: Payment allocations
+3. **Payments** (Light Salmon)
+   - `payment`: Payment records
+   - `paysplit`: Payment splits
    - `payplan`: Payment plans
+   - `claimproc`: Insurance claims
 
-4. **Supporting Tables**:
-   - `appointmenttype`: Appointment type definitions
+### Relationship Types
+
+- **Blue Dashed Lines**: Patient-related relationships
+- **Gray Dotted Lines**: Self-referential relationships
+- **Black Solid Lines**: Standard relationships
+
+## Tables Overview
+
+### Core Tables
+- `patient`: Patient demographic information (PatNum, LName, FName, etc.)
+- `appointment`: Appointment scheduling and status
+- `procedurelog`: Dental procedures and treatments
+
+### Insurance Tables
+- `patplan`: Links patients to insurance plans
+- `inssub`: Insurance subscription details
+- `claimproc`: Insurance claim processing
+
+### Payment Tables
+- `payment`: Payment transactions
+- `paysplit`: Payment distribution
+- `payplan`: Payment plan arrangements
 
 ## Contributing
 
-Feel free to submit issues and enhancement requests!
+Feel free to submit issues and enhancement requests. We welcome your feedback to improve the visualization and analysis of the Open Dental database schema.
