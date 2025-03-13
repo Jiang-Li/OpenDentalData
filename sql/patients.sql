@@ -34,7 +34,7 @@ SELECT
     MAX(CASE WHEN ins.PlanNum IS NOT NULL THEN 1 ELSE 0 END) as HasInsurance,  -- Boolean flag (0/1) if patient has any insurance
     
     -- Payment plan information
-    COUNT(DISTINCT pplan.PayPlanNum) as ActivePaymentPlans,  -- Count of payment plans for the patient
+    COUNT(DISTINCT pplan.PayPlanNum) as ActivePaymentPlans  -- Count of payment plans for the patient
 
 FROM patient p
 -- Join to get insurance information through the proper relationship chain
