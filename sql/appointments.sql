@@ -49,7 +49,7 @@ SELECT
         THEN 'Partially Paid'
         -- If no payments have been made, it's not paid
         ELSE 'Not Paid'
-    END as PaymentStatus,
+    END as PaymentStatus
 
 FROM appointment a
 -- Join to get appointment type information
