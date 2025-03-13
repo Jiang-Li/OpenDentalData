@@ -41,8 +41,7 @@ SELECT
     SUM(CASE WHEN pl.ProcStatus = 2 THEN pl.ProcFee ELSE 0 END) as TotalBillAmount,
     
     -- Insurance portion (sum of insurance payments and expected payments)
-    SUM(COALESCE(CASE WHEN cp.Status = 1 THEN cp.InsPayAmt ELSE 0 END, 0)) as InsurancePaidAmount,
-    
+    SUM(COALESCE(CASE WHEN cp.Status = 1 THEN cp.InsPayAmt ELSE 0 END, 0)) as InsurancePaidAmount
 
 FROM patient p
 -- Join to get insurance information through the proper relationship chain
