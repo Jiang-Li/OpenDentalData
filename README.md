@@ -1,58 +1,90 @@
-# OpenDental Database Schema Analysis
+# OpenDentalData - Database Schema Analysis
 
-## Overview
-This project focuses on analyzing database schemas and providing SQL data preparation suggestions. The analysis includes documentation of table structures, relationships, and suggested queries based on the OpenDental database schema.
+This project provides tools for analyzing and visualizing the Open Dental database schema, with a focus on patient and appointment data analysis.
+
+## Features
+
+- **Schema Parsing**: Parse XML schema documentation to extract table structures and relationships
+- **ERD Generation**: Generate Entity Relationship Diagrams (ERD) using Graphviz
+- **SQL Analysis**: Includes example SQL queries for common data analysis tasks
 
 ## Project Structure
+
 ```
-OpenDentalData/
-├── sql/                    # SQL queries and table definitions
-│   ├── appointments.sql    # Appointment-related queries
-│   └── patients.sql       # Patient-related queries
-│
-├── src/                   # Source code
-│   └── schema_parser.py   # XML to Markdown schema parser
-│
-├── docs/                  # Documentation
-│   ├── notes.md          # Working notes and observations
-│   ├── schema.md         # Comprehensive database schema
-│   └── OpenDentalDocumentation24-3.xml  # Raw OpenDental documentation
+.
+├── src/
+│   ├── generate_erd.py    # ERD generation script
+│   └── schema_parser.py   # XML schema parser
+├── sql/
+│   ├── patients.sql       # Patient-level analysis queries
+│   └── appointments.sql   # Appointment-level analysis queries
+└── docs/
+    ├── schema.md          # Markdown documentation of schema
+    ├── database_erd.png   # Generated ERD diagram
+    └── database_erd.dot   # DOT source for ERD
 ```
 
-## Getting Started
-1. Install required dependencies:
+## Prerequisites
+
+- Python 3.8+
+- Graphviz (for ERD generation)
+
+### Installing Graphviz
+
+- macOS: `brew install graphviz`
+- Linux: `apt-get install graphviz`
+- Windows: Download from [Graphviz Downloads](https://graphviz.org/download/)
+
+## Usage
+
+1. **Generate ERD**:
    ```bash
-   pip install -r requirements.txt
+   python src/generate_erd.py
    ```
+   This will create:
+   - `docs/database_erd.png`: Visual ERD diagram
+   - `docs/database_erd.dot`: DOT source file
 
-2. Review the database schema:
-   - Check `docs/schema.md` for comprehensive database structure
-   - Reference `docs/OpenDentalDocumentation24-3.xml` for original documentation
+2. **SQL Queries**:
+   - `sql/patients.sql`: Retrieve patient demographics, insurance status, and financial data
+   - `sql/appointments.sql`: Analyze appointment scheduling and related financial information
 
-3. Explore SQL queries:
-   - `sql/appointments.sql`: Queries for appointment management
-   - `sql/patients.sql`: Queries for patient data
+## ERD Layout
 
-4. Development:
-   - Use `src/schema_parser.py` to update schema documentation if needed
-   - Check `docs/notes.md` for implementation details and decisions
+The ERD is organized into logical groups:
 
-## Updating the Schema
+- **Patient Information** (Blue): Core patient data
+- **Appointments** (Green): Appointment scheduling and procedures
+- **Insurance** (Pink): Insurance plans and claims
+- **Payments** (Orange): Payment tracking and plans
 
-### When to Update
-- When a new version of OpenDental documentation is released
-- When you need to analyze schema changes between versions
-- When you discover the current schema documentation is outdated
+Relationship types are indicated by different line styles:
+- **Blue dashed lines**: Relationships to patient table
+- **Gray dotted lines**: Self-referential relationships
+- **Solid black lines**: Standard foreign key relationships
 
-### How to Update
-1. Obtain the new OpenDental documentation XML file (e.g., `OpenDentalDocumentation24-3.xml`)
-2. Place the XML file in the `docs/` directory
-3. Run the schema parser:
-   ```bash
-   python src/schema_parser.py docs/OpenDentalDocumentation24-3.xml docs/schema.md
-   ```
-4. Verify the update by:
-   - Checking the generated `schema.md` file
-   - Reviewing the table of contents
-   - Confirming table definitions are complete
-   - Validating foreign key relationships
+## Tables Included
+
+The ERD focuses on the most relevant tables for patient and appointment analysis:
+
+1. **Core Tables**:
+   - `patient`: Patient demographics and core information
+   - `appointment`: Appointment scheduling data
+   - `procedurelog`: Dental procedures
+
+2. **Insurance Tables**:
+   - `inssub`: Insurance subscriptions
+   - `patplan`: Patient-insurance plan links
+   - `claimproc`: Insurance claims and payments
+
+3. **Payment Tables**:
+   - `payment`: Patient payments
+   - `paysplit`: Payment allocations
+   - `payplan`: Payment plans
+
+4. **Supporting Tables**:
+   - `appointmenttype`: Appointment type definitions
+
+## Contributing
+
+Feel free to submit issues and enhancement requests!
