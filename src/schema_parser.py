@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from bs4 import BeautifulSoup
+import xml.etree.ElementTree as ET
 import logging
 from typing import Dict, List, TypedDict
 import sys
@@ -30,6 +31,8 @@ class Table(TypedDict):
 
 def clean_text(text: str) -> str:
     """Clean text by removing extra whitespace and newlines."""
+    if not text:
+        return ""
     # Replace multiple whitespace with single space
     text = re.sub(r'\s+', ' ', text)
     # Remove leading/trailing whitespace
@@ -37,97 +40,68 @@ def clean_text(text: str) -> str:
 
 def escape_markdown(text: str) -> str:
     """Escape special markdown characters in text."""
+    if not text:
+        return ""
     # Characters to escape: \ ` * _ { } [ ] ( ) # + - . !
     chars_to_escape = r'\\`*_{}[]()#+-.!'
     return re.sub(f'([{chars_to_escape}])', r'\\\1', text)
 
-def parse_column(row) -> Column:
-    """Parse a single table row into a column definition."""
-    cells = row.find_all('td')
-    if len(cells) >= 4:
-        name = cells[1].text.strip()
-        # Skip rows that don't have a column name (enum value rows)
-        if not name:
-            return None
-            
-        description = clean_text(cells[3].text)
-        
-        # Check if this is an enum definition
-        enum_values = []
-        if 'enum:' in description.lower():
-            # Extract enum values from following rows
-            next_row = row.find_next_siblings('tr')
-            for enum_row in next_row:
-                enum_cells = enum_row.find_all('td')
-                if len(enum_cells) >= 4 and not enum_cells[1].text.strip():
-                    enum_value = clean_text(enum_cells[3].text)
-                    if enum_value:
-                        enum_values.append(enum_value)
-                else:
-                    break
-        
-        return {
-            'order': cells[0].text.strip(),
-            'name': name,
-            'data_type': cells[2].text.strip(),
-            'constraints': '',
-            'description': description,
-            'enum_values': enum_values
-        }
-    return None
+def parse_enum_values(column_elem) -> List[str]:
+    """Parse enum values from a column element."""
+    enum_values = []
+    enum_elem = column_elem.find('Enumeration')
+    if enum_elem is not None:
+        for enum_value in enum_elem.findall('EnumValue'):
+            name = enum_value.get('name')
+            value = enum_value.text
+            enum_values.append(f"{name} ({value})")
+    return enum_values
 
-def extract_table_name_and_desc(section: BeautifulSoup) -> tuple[str, str]:
-    """Extract table name and description from the table header section."""
-    header_table = section.find('table')
-    if not header_table:
-        return None, None
+def parse_column(column_elem) -> Column:
+    """Parse a single column element into a column definition."""
+    name = column_elem.get('name', '')
+    if not name:
+        return None
         
-    # The table name is in the first row, first cell, in a <b> tag
-    name_cell = header_table.find('b')
-    if not name_cell:
-        return None, None
+    summary_elem = column_elem.find('summary')
+    description = clean_text(summary_elem.text) if summary_elem is not None else ''
     
-    table_name = name_cell.text.strip()
+    # Check for foreign key in description
+    fk_attr = column_elem.get('fk', '')
+    if fk_attr:
+        description = f"FK to {fk_attr}. {description}"
     
-    # The description is in the second row, first cell
-    desc_row = header_table.find_all('tr')[1] if len(header_table.find_all('tr')) > 1 else None
-    description = clean_text(desc_row.find('td').text) if desc_row else ''
-    
-    return table_name, description
+    return {
+        'order': column_elem.get('order', ''),
+        'name': name,
+        'data_type': column_elem.get('type', ''),
+        'constraints': '',
+        'description': description,
+        'enum_values': parse_enum_values(column_elem)
+    }
 
-def extract_foreign_key_reference(description: str) -> str:
-    """Extract the referenced table name from a foreign key description."""
-    desc = description.lower()
-    if 'fk to' in desc:
-        # Find the referenced table between 'fk to' and the next period or space
-        match = re.search(r'fk to\s+([a-z0-9_]+)', desc)
-        if match:
-            return match.group(1)
-    return None
-
-def parse_table_section(section: BeautifulSoup) -> tuple[str, Table]:
-    """Parse a complete table section including name, description, and columns."""
-    table_name, description = extract_table_name_and_desc(section)
+def parse_table(table_elem) -> tuple[str, Table]:
+    """Parse a complete table element including name, description, and columns."""
+    table_name = table_elem.get('name', '')
     if not table_name:
         return None, None
     
-    column_table = section.find_all('table')[1] if len(section.find_all('table')) > 1 else None
-    if not column_table:
-        return None, None
+    summary_elem = table_elem.find('summary')
+    description = clean_text(summary_elem.text) if summary_elem is not None else ''
     
     columns = []
     primary_keys = []
     foreign_keys = {}
     
-    for row in column_table.find_all('tr')[1:]:  # Skip header row
-        column = parse_column(row)
+    for column_elem in table_elem.findall('column'):
+        column = parse_column(column_elem)
         if column:
             if 'primary key' in column['description'].lower():
                 primary_keys.append(column['name'])
             
-            referenced_table = extract_foreign_key_reference(column['description'])
-            if referenced_table:
-                foreign_keys[column['name']] = referenced_table
+            fk_attr = column_elem.get('fk', '')
+            if fk_attr:
+                foreign_keys[column['name']] = fk_attr
             
             columns.append(column)
     
@@ -139,32 +113,25 @@ def parse_table_section(section: BeautifulSoup) -> tuple[str, Table]:
         'foreign_keys': foreign_keys
     }
 
-def parse_schema(html_file: str) -> Dict[str, Table]:
-    """Parse the HTML file and extract schema information."""
+def parse_schema(xml_file: str) -> Dict[str, Table]:
+    """Parse the XML file and extract schema information."""
     try:
-        with open(html_file, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        soup = BeautifulSoup(content, 'html.parser')
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
         tables = {}
         
-        # Find all table sections - they are wrapped in <p> tags
-        table_sections = soup.find_all('p')
-        
-        for section in table_sections:
+        for table_elem in root.findall('table'):
             try:
-                # Each valid table section should have at least 2 tables
-                if len(section.find_all('table')) >= 2:
-                    table_name, table = parse_table_section(section)
-                    if table_name and table:
-                        tables[table_name] = table
+                table_name, table = parse_table(table_elem)
+                if table_name and table:
+                    tables[table_name] = table
             except Exception as e:
-                logging.error(f"Error parsing table section: {e}")
+                logging.error(f"Error parsing table element: {e}")
                 
         return tables
                 
     except Exception as e:
-        logging.error(f"Error reading or parsing HTML file: {e}")
+        logging.error(f"Error reading or parsing XML file: {e}")
         raise
 
 def format_description_for_table(description: str, enum_values: List[str]) -> str:
@@ -245,7 +212,7 @@ def generate_markdown(tables: Dict[str, Table], output_file: str) -> None:
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: python schema_parser.py <input_html_file> <output_markdown_file>")
+        print("Usage: python schema_parser.py <input_xml_file> <output_markdown_file>")
         sys.exit(1)
         
     input_file = sys.argv[1]

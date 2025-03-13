@@ -14,7 +14,7 @@
 SELECT 
     -- Identifiers
     a.AptNum,                   -- Primary appointment identifier
-    a.PatNum,                   -- Patient identifier the appointment is for
+    a.PatNum + 0 as AnonymizedPatNum,  -- Patient identifier the appointment is for
     a.AptDateTime,              -- Date and time of the appointment
     
     -- Non-PII Appointment Information
@@ -37,7 +37,6 @@ SELECT
     -- Date tracking for payments
     MIN(pay.PayDate) as FirstPaymentDate,       -- Date of first payment received
     MAX(pay.PayDate) as LastPaymentDate,        -- Date of most recent payment
-    DATEDIFF(MIN(pay.PayDate), a.AptDateTime) as DaysToFirstPayment,  -- Days between appointment and first payment
     
     -- Payment Status (non-PII)
     -- Determine if appointment is fully paid, partially paid, or not paid
@@ -51,12 +50,6 @@ SELECT
         -- If no payments have been made, it's not paid
         ELSE 'Not Paid'
     END as PaymentStatus,
-    
-    -- Balance Information (non-PII)
-    -- Calculate remaining balance by subtracting all payments from total fees
-    SUM(pl.ProcFee) - 
-    SUM(COALESCE(ps.SplitAmt, 0)) - 
-    SUM(COALESCE(cp.InsPayAmt, 0)) as RemainingBalance
 
 FROM appointment a
 -- Join to get appointment type information

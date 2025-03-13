@@ -14,9 +14,9 @@
  */
 SELECT 
     -- Basic patient identifiers and demographics
-    p.PatNum,                   -- Primary patient identifier
+    p.PatNum + 0 as AnonymizedPatNum,     -- Primary patient identifier
     p.LName,                    -- Last name
-    
+    p.FName,                    -- First name   
     -- Converting birthdate to middle of the year (June 30) for privacy/de-identification
     STR_TO_DATE(
         CONCAT(
@@ -35,13 +35,6 @@ SELECT
     
     -- Payment plan information
     COUNT(DISTINCT pplan.PayPlanNum) as ActivePaymentPlans,  -- Count of payment plans for the patient
-    
-    -- Financial calculations
-    -- Total bill amount (sum of all completed procedure fees)
-    SUM(CASE WHEN pl.ProcStatus = 2 THEN pl.ProcFee ELSE 0 END) as TotalBillAmount,
-    
-    -- Insurance portion (sum of insurance payments and expected payments)
-    SUM(COALESCE(CASE WHEN cp.Status = 1 THEN cp.InsPayAmt ELSE 0 END, 0)) as InsurancePaidAmount
 
 FROM patient p
 -- Join to get insurance information through the proper relationship chain
